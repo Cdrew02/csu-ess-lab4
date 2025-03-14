@@ -1,0 +1,231 @@
+---
+title: "Index"
+author: "Chris Drew"
+format: html
+---
+
+#Part 1 Questions
+```{r}
+# Load necessary libraries
+library(tidyverse)
+library(ggpubr)
+library(lterdatasampler)
+library(car)
+
+# Clean the data
+sally_clean <- and_vertebrates |> 
+  filter(species == "Coastal giant salamander") |> 
+  drop_na(unittype, section)
+
+# contingency table
+cont_table <- table(sally_clean$section, sally_clean$unittype)
+
+# Print contingency table
+cont_table
+
+chisq_test <- chisq.test(cont_table)
+
+chisq_test$expected
+
+# chi-square test
+chisq_test_result <- chisq.test(cont_table)
+
+chisq_test_result
+
+# Visualize
+sally_clean |> 
+  count(unittype, section) |>  # Calculate counts of unittype by section
+  ggbarplot(x = 'unittype', y = 'n', fill = 'section', 
+            palette = c("#00AFBB", "#E7B800"), add = "mean_se") +
+  labs(title = "Unit Type by Forest Type for Coastal Giant Salamander", 
+       y = "Count", x = "Unit Type")
+
+# Clean 
+sally_clean <- and_vertebrates |> 
+  filter(species == "Coastal giant salamander") |> 
+  drop_na(weight_g)
+
+# Separate the data 
+cc_weight <- sally_clean |> 
+  filter(section == "CC") |> 
+  pull(weight_g)
+
+og_weight <- sally_clean |> 
+  filter(section == "OG") |> 
+  pull(weight_g)
+
+shapiro.test(cc_weight)  # Normality for Clear Cut
+shapiro.test(og_weight)  # Normality for Old Growth
+
+leveneTest(weight_g ~ section, data = sally_clean)
+
+t_test_result <- t.test(cc_weight, og_weight, var.equal = TRUE)
+
+# Report the t-test result
+t_test_result
+
+# Visualize the weight data for both Clear Cut and Old Growth sections
+ggarrange(
+  gghistogram(cc_weight, title = "Clear Cut Forest - Coastal Giant Salamander Weight"),
+  gghistogram(og_weight, title = "Old Growth Forest - Coastal Giant Salamander Weight")
+)
+
+# Filter for Cutthroat trout and remove missing values for length_2_mm and weight_g
+trout_clean <- and_vertebrates %>%
+  filter(species == "Cutthroat trout") %>%
+  drop_na(length_2_mm, weight_g)
+
+shapiro.test(trout_clean$length_2_mm)
+shapiro.test(trout_clean$weight_g)
+
+
+cor.test(trout_clean$length_2_mm, trout_clean$weight_g, method = "pearson")
+
+cor.test(trout_clean$length_2_mm, trout_clean$weight_g, method = "spearman")
+
+ggscatter(trout_clean, x = "length_2_mm", y = "weight_g", 
+          color = "species", add = "reg.line", 
+          conf.int = TRUE, palette = "jco") +
+  labs(title = "Correlation between Body Length and Weight for Cutthroat Trout", 
+       x = "Body Length (mm)", y = "Body Weight (g)")
+
+```
+#Part 2 Questions
+```{r}
+library(tidyverse)
+library(ggpubr)
+library(broom)
+library(car)
+library(flextable)
+```
+
+
+```{r}
+data("pie_crab")
+glimpse(pie_crab)
+summary(pie_crab)
+
+# Sample size per site
+count(pie_crab, site)
+
+# Visualizing crab size distribution per site
+ggplot(pie_crab, aes(x = site, y = size, col = site)) +
+  geom_boxplot() +
+  geom_jitter(size = 0.25) +
+  theme(legend.position = "none")
+
+# Check normality using Shapiro-Wilk test
+norms <- pie_crab |> 
+  nest(data = -site) |>
+  mutate(Shapiro = map(data, ~ shapiro.test(.x$size)),
+         n = map_dbl(data, nrow),
+         glance_shapiro = map(Shapiro, broom::glance)) |>
+  unnest(glance_shapiro)
+
+flextable::flextable(dplyr::select(norms, site, n, statistic, p.value)) |>
+  flextable::set_caption("Shapiro-Wilk normality test for size at each site")
+
+# Run ANOVA
+res_aov <- aov(size ~ site, data = pie_crab)
+summary(res_aov)
+
+# Check residuals' normality
+gghistogram(res_aov$residuals)
+shapiro.test(res_aov$residuals)
+
+# Test for equal variances
+leveneTest(size ~ site, data = pie_crab)
+
+# Perform Welch's ANOVA
+oneway.test(size ~ site, data = pie_crab, var.equal = FALSE)
+
+# Subset data for selected sites
+pie_sites <- pie_crab |> 
+  filter(site %in% c("GTM", "DB", "PIE"))
+
+# Check for equal variance in subset
+leveneTest(size ~ site, data = pie_sites)
+
+# Run ANOVA for subset
+pie_anova <- aov(size ~ site, data = pie_sites)
+summary(pie_anova)
+
+# Tukey's HSD post-hoc test
+TukeyHSD(pie_anova)
+
+# Linear regression: Testing Bergmann’s rule
+pie_lm <- lm(size ~ latitude, data = pie_crab)
+
+# View regression results
+summary(pie_lm)
+
+
+
+```
+
+```{r}
+str(pie_crab)
+library(ggplot2)
+library(dplyr)
+
+# Ensure site is ordered by latitude
+pie_crab <- pie_crab %>%
+  mutate(site = reorder(site, latitude))
+
+# Create the boxplot
+boxplot_figure <- ggplot(pie_crab, aes(x = site, y = size)) +
+  geom_boxplot(fill = "lightblue", color = "black") +
+  labs(
+    x = "Site (Ordered by Latitude)",
+    y = "Carapace Width (mm)",
+    title = "Carapace Width by Site"
+  ) +
+  theme_minimal()
+
+# Save the plot
+ggsave("img/crab_boxplot.png", boxplot_figure, width = 6, height = 4, dpi = 300)
+
+# Display the plot
+print(boxplot_figure)
+
+
+
+```
+#Report:Latitude was a significant predictor of carapace width (p < 0.001), while air temperature standard deviation (p = 0.173) and water temperature standard deviation (p = 0.325) were not significant.
+
+```{r}
+# Load necessary packages
+library(tidyverse)
+str(pie_crab)
+model <- lm(size ~ water_temp_sd, data = pie_crab)
+summary(model)
+library(ggplot2)
+
+ggplot(pie_crab, aes(x = water_temp_sd, y = size)) +
+  geom_point() +
+  geom_smooth(method = "lm", col = "red") +
+  labs(x = "Annual Variation in Water Temperature (SD)", y = "Carapace Width (Size)") +
+  theme_minimal()
+ggsave("carapace_width_vs_water_temp_sd.png")
+
+
+```
+#Report:The plot shows the relationship between water temperature standard deviation (water_temp_sd) and carapace width, with data points scattered around the line of best fit. The regression reveals no large effect of water_temp_sd on carapace width, the p-value for the water_temp_sd coefficient is 0.528, showing no significant relationship.
+```{r}
+# Select the predictor variables
+predictors <- pie_crab[, c("latitude", "air_temp_sd", "water_temp_sd")]
+
+cor_matrix <- cor(predictors)
+
+# Display the correlation matrix
+cor_matrix
+# Fit the multiple linear regression model
+model_multiple <- lm(size ~ latitude + air_temp_sd + water_temp_sd, data = pie_crab)
+
+# Summarize
+summary(model_multiple)
+
+
+
+```
+#Report: Latitude significantly influences carapace width (p < 2e-16), while air temperature variability (p = 0.1730) and water temperature variability (p = 0.3254) do not significantly affect carapace width.
