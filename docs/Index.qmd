@@ -97,6 +97,10 @@ ggscatter(trout_clean, x = "length_2_mm", y = "weight_g",
           conf.int = TRUE, palette = "jco") +
   labs(title = "Correlation between Body Length and Weight for Cutthroat Trout", 
        x = "Body Length (mm)", y = "Body Weight (g)")
+if (!dir.exists("img")) {
+  dir.create("img")
+}
+
 
 ```
 #Part 2 Questions
