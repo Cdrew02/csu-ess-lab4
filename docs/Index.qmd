@@ -1,8 +1,17 @@
 ---
 title: "Index"
-author: "Chris Drew"
-format: html
+subtitle: "Ecosystem Science and Sustainability 330"
+author:
+  - name: Chris Drew
+    email: "cdrew02@colostate.edu"
+format:
+  html:
+    self-contained: true
+execute:
+  echo: true
 ---
+
+
 
 #Part 1 Questions
 ```{r}
@@ -224,6 +233,14 @@ model_multiple <- lm(size ~ latitude + air_temp_sd + water_temp_sd, data = pie_c
 
 # Summarize
 summary(model_multiple)
+
+knitr::opts_chunk$set(
+  echo = TRUE,
+  fig.path = "figures/",
+  fig.keep = "all",
+  dev = "png"
+)
+
 
 
 
